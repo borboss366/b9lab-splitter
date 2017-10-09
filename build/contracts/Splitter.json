@@ -1,0 +1,229 @@
+{
+  "contract_name": "Splitter",
+  "abi": [
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "killContract",
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "carol",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "bob",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "financeContract",
+      "outputs": [
+        {
+          "name": "success",
+          "type": "bool"
+        }
+      ],
+      "payable": true,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "alice",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "_alice",
+          "type": "address"
+        },
+        {
+          "name": "_bob",
+          "type": "address"
+        },
+        {
+          "name": "_carol",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "constructor"
+    },
+    {
+      "payable": false,
+      "type": "fallback"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "killer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "LogDeath",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "LogContribution",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "bobpart",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "carolpart",
+          "type": "uint256"
+        }
+      ],
+      "name": "LogAliceSend",
+      "type": "event"
+    }
+  ],
+  "unlinked_binary": "0x6060604052341561000f57600080fd5b60405160608061048d8339810160405280805191906020018051919060200180519150505b60038054600160a060020a03338116600160a060020a031992831617909255600080548684169083161790556001805485841690831617905560028054928416929091169190911790555b5050505b6103fb806100926000396000f300606060405236156100755763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416631c02708d81146100885780638b930f15146100af5780638da5cb5b146100de578063c09cec771461010d578063d33961491461013c578063fb47e3a214610158575b341561008057600080fd5b5b600080fd5b005b341561009357600080fd5b61009b610187565b604051901515815260200160405180910390f35b34156100ba57600080fd5b6100c261025b565b604051600160a060020a03909116815260200160405180910390f35b34156100e957600080fd5b6100c261026a565b604051600160a060020a03909116815260200160405180910390f35b341561011857600080fd5b6100c2610279565b604051600160a060020a03909116815260200160405180910390f35b61009b610288565b604051901515815260200160405180910390f35b341561016357600080fd5b6100c26103c0565b604051600160a060020a03909116815260200160405180910390f35b600354600090819033600160a060020a03908116911614806101b7575060005433600160a060020a039081169116145b806101d0575060015433600160a060020a039081169116145b806101e9575060025433600160a060020a039081169116145b15156101f457600080fd5b50600354600160a060020a0330811631917ff099fa04deb98376f001d87d90503b48d6b7873c053207c5cfe97f4b7989ba05911682604051600160a060020a03909216825260208201526040908101905180910390a133600160a060020a0316ff5b5b5090565b600254600160a060020a031681565b600354600160a060020a031681565b600154600160a060020a031681565b600080803481901161029957600080fd5b60005433600160a060020a0390811691161415610371576002345b6001549190049250348390039150600160a060020a031682156108fc0283604051600060405180830381858888f1935050505015156102f257600080fd5b600254600160a060020a031681156108fc0282604051600060405180830381858888f19350505050151561032557600080fd5b7f81dd94c468d67812fe72aef7b4e9734960ded450379d19a2afb420b97b2b6f9934838360405180848152602001838152602001828152602001935050505060405180910390a16103b5565b7f8dd217233bd6d11e82c344e099da54766c3b320eaa5df1afed96dbd2c361cccf3433604051918252600160a060020a031660208201526040908101905180910390a15b600192505b5b505090565b600054600160a060020a0316815600a165627a7a7230582022d3ef80605baaa100b2c8c5d8bc91d333c04951c90804e4df0309de15c6a1e90029",
+  "networks": {
+    "1507558426927": {
+      "events": {
+        "0xf099fa04deb98376f001d87d90503b48d6b7873c053207c5cfe97f4b7989ba05": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "name": "killer",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "LogDeath",
+          "type": "event"
+        },
+        "0x81dd94c468d67812fe72aef7b4e9734960ded450379d19a2afb420b97b2b6f99": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "bobpart",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "carolpart",
+              "type": "uint256"
+            }
+          ],
+          "name": "LogAliceSend",
+          "type": "event"
+        },
+        "0x8dd217233bd6d11e82c344e099da54766c3b320eaa5df1afed96dbd2c361cccf": {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": false,
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "sender",
+              "type": "address"
+            }
+          ],
+          "name": "LogContribution",
+          "type": "event"
+        }
+      },
+      "links": {},
+      "address": "0x28699365f5843173acf0fa2ebea2c24d8072825d",
+      "updated_at": 1507567512395
+    }
+  },
+  "schema_version": "0.0.5",
+  "updated_at": 1507567512395
+}
