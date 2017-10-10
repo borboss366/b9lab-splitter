@@ -28,9 +28,7 @@ contract Splitter {
 
     event LogSplitted(uint amount, address splitter, address party1, address party2);
     event LogContributed(uint amount, address splitter);
-
-    // Not used right now. Do not terminate the contract.
-    event LogTerminated(uint amount, uint terminator);
+    event LogWithdrawn(uint amount, address beneficiary);
 
     function Splitter() 
         public {
@@ -128,6 +126,7 @@ contract Splitter {
         if (refund == 0) revert(); // nothing to send
         splitters[msg.sender].balance = 0;
         require(msg.sender.send(refund)); // revert state if send fails
+        LogWithdrawn(refund, msg.sender);
     }
 
     /*

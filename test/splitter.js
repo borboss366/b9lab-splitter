@@ -44,6 +44,34 @@ contract("Splitter", function(accounts) {
     it ("should check, that the account balance is changed ok after withdrawal",
     () => { return getContributionAccountData(source, null, null, 4000000000000).then(data => checkWithdrawalAccount(source)) })
 
+    it("should check the account balance after contributing and withdrawing", 
+    () => { 
+        var before;
+        var after;
+        var gasContribute;
+        var priceContribute;
+        var gasWithdrawn;
+        var priceWithdrawn;
+
+        return getBalance(source) 
+        .then(balance => { before = balance; return contract.contribute({from: source, value: 1000 * 1000 * 1000})})
+        .then(txn => { gasContribute = txn.receipt.gasUsed; return web3.eth.getTransaction(txn.tx)})
+        .then(tx => { priceContribute = tx.gasPrice; return contract.withdrawRefund({from: source})})
+        .then(txn => { gasWithdrawn = txn.receipt.gasUsed; return web3.eth.getTransaction(txn.tx) })
+        .then(tx => { priceWithdrawn = tx.gasPrice; return getBalance(source) })
+        .then(balance => { 
+            after = balance; 
+            var costContribute = priceContribute.times(gasContribute);
+            var costWithdraw = priceWithdrawn.times(gasWithdrawn);
+            assert.strictEqual(before.toString(10), after.plus(costContribute).plus(costWithdraw).toString(10), "balance of the account should remain the same")} )
+    })
+
+    function getBalance(acc) {
+        return new Promise(function(resolve, reject) {
+            web3.eth.getBalance(acc, function(e, balance) { resolve(balance); });
+        });
+    }
+
 
     // contributes the value to the account, and than checks the balance of it
     function getContributionAccountData(acc, party1, party2, value) {
@@ -107,7 +135,8 @@ contract("Splitter", function(accounts) {
         .then(before => { data.before = before; return web3.eth.getBalance(contract.address)})
         .then(contractBefore => { data.contractBefore = contractBefore; return web3.eth.getBalance(acc)})
         .then(accBefore => { data.accBefore = accBefore; return contract.withdrawRefund({from: acc});})
-        .then(txn => { data.price = web3.eth.gasPrice.times(txn.receipt.gasUsed); return contract.getBalance(acc, {from: acc})})
+        .then(txn => { data.gasUsed = txn.receipt.gasUsed; return web3.eth.getTransaction(txn.tx) })
+        .then(tx => {data.price = tx.gasPrice.times(data.gasUsed); return contract.getBalance(acc, {from: acc})})
         .then(after => { data.after = after; return web3.eth.getBalance(contract.address)} )
         .then(contractAfter => { data.contractAfter = contractAfter; return web3.eth.getBalance(acc); })
         .then(accAfter => { data.accAfter = accAfter; return data;})
@@ -116,8 +145,8 @@ contract("Splitter", function(accounts) {
     function checkWithdrawalBalance(data) {
         assert.strictEqual(data.before.minus(data.after).toString(10), data.contractBefore.minus(data.contractAfter).toString(10), 
             "The amount of changed account data equals to the withdrawn data");
-        // assert.strictEqual(data.accAfter.minus(data.accBefore).plus(data.price).toString(10), data.contractBefore.minus(data.contractAfter).toString(10), 
-        //     "The amount of changed account data equals to the withdrawn data")
+        assert.strictEqual(data.accAfter.minus(data.accBefore).plus(data.price).toString(10), data.contractBefore.minus(data.contractAfter).toString(10), 
+            "The amount of changed account data equals to the withdrawn data")
     }
 
     function checkWithdrawalAccount(acc) {
