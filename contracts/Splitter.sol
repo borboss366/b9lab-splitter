@@ -1,66 +1,133 @@
 pragma solidity ^0.4.15;
 
+/*
+There are four types of parties.
+1. Owner of the contract. Can kill and terminate the contract
+2. Splitter address - can set up the two parties for receiving splitter money.
+3. party1
+4. party2 - they are receipients of the split
+
+If the ether is sent to contract and the party1 and party2 are specified, that the value is split and distributed between party1 and party2,
+otherwise it is just stored on the balance of the sender.
+*/
 contract Splitter {
-    // the addresses of the users of this contract
-    address public alice;
-    address public bob;
-    address public carol;
+    // Owner of this contract
     address public owner;
 
-    event LogDeath(address killer, uint amount);
-    event LogContribution(uint amount, address sender);
-    event LogAliceSend(uint amount, uint bobpart, uint carolpart);
+    // the splitters, who decided to participate in splitting
+    mapping (address => SplitterUsers) splitters;
 
-    function Splitter(address _alice, address _bob, address _carol) public {
+    /*
+    The structure to set up splits for the splitters
+    */
+    struct SplitterUsers {
+        address party1;
+        address party2;
+        uint balance;
+    }
+
+    event LogSplitted(uint amount, address splitter, address party1, address party2);
+    event LogContributed(uint amount, address splitter);
+
+    // Not used right now. Do not terminate the contract.
+    event LogTerminated(uint amount, uint terminator);
+
+    function Splitter() 
+        public {
         owner = msg.sender;
-        alice = _alice;
-        bob = _bob;
-        carol = _carol;
+    }
+
+    function setRecipients(address party1, address party2) 
+        public {
+
+        // You cannot split to your own account
+        if (party1 == msg.sender) revert();
+        if (party2 == msg.sender) revert();
+        
+        splitters[msg.sender].party1 = party1;
+        splitters[msg.sender].party2 = party2;
+    }
+
+    function clearRecipients()
+        public {
+        setRecipients(address(0x0), address(0x0));
+    }
+
+    function getBalance(address account) 
+        public 
+        constant
+        returns (uint) {
+        return splitters[account].balance;
+    }
+
+
+    /*
+    Idea taken from here - https://ethereum.stackexchange.com/questions/6756/ways-to-see-if-address-is-empty
+    */
+    function isAddressSet(address addr)
+        public 
+        constant
+        returns (bool) {
+        return addr != address(0x0);
+    }
+
+    function isSplitterSet(address splitter) 
+        public 
+        constant
+        returns (bool) {
+        return isAddressSet(splitters[splitter].party1) && isAddressSet(splitters[splitter].party2);
+    }
+
+    function incBalance(address recp, uint amount) 
+        private {
+        splitters[recp].balance += amount;
     }
 
     /*
-    Only participating parties can change the state of this contract
-    */
-    modifier innerCircle () {
-        require(msg.sender == owner || msg.sender == alice || msg.sender == bob || msg.sender == carol);
-        _;
+    function getparty2Part(uint amount) 
+        constant
+        public  
+        returns (uint) {
+        return amount / 2;
     }
 
-    modifier hasMunny() {
+    function getparty1Part(uint amount) 
+        constant
+        public  
+        returns (uint) {
+        return amount - getparty2Part(amount);
+    }
+    */
+
+    function contribute()
+        payable
+        hasMoney
+        public {
+        
+        if (isSplitterSet(msg.sender)) {
+            uint party1part = msg.value / 2;
+            uint party2part = msg.value - party1part;
+
+            incBalance(splitters[msg.sender].party1, party1part);
+            incBalance(splitters[msg.sender].party2, party2part);
+            LogSplitted(msg.value, msg.sender, splitters[msg.sender].party1, splitters[msg.sender].party2);
+        } else {
+            // increase the amount of ether on the balance
+            splitters[msg.sender].balance += msg.value;
+            LogContributed(msg.value, msg.sender);
+        }
+    }
+
+    modifier hasMoney() {
         require (msg.value > 0);
         _;
     }
 
-    function killContract() 
-        innerCircle 
-        public 
-        returns (bool success) {
-        uint amount = this.balance;
-        
-        LogDeath(owner, amount);
-        selfdestruct(msg.sender);
-        return true;
-    }
-
-    function financeContract() 
-        public
-        payable
-        hasMunny
-        returns (bool success)
-    {
-        if (msg.sender == alice) {
-            var bobpart = msg.value / 2;
-            var carolpart = msg.value - bobpart;
-
-            bob.transfer(bobpart);
-            carol.transfer(carolpart);
-            
-            LogAliceSend(msg.value, bobpart, carolpart);
-        } else {
-            LogContribution(msg.value, msg.sender);
-        }    
-
-        return true;
+    function withdrawRefund() external {
+        uint refund = splitters[msg.sender].balance;
+        if (refund == 0) revert(); // nothing to send
+        splitters[msg.sender].balance = 0;
+        require(msg.sender.send(refund)); // revert state if send fails
     }
 
     /*
@@ -71,19 +138,52 @@ contract Splitter {
         revert();
     }
 
+
+    // function killContract() 
+    //     innerCircle 
+    //     public 
+    //     returns (bool success) {
+    //     uint amount = this.balance;
+        
+    //     LogDeath(owner, amount);
+    //     selfdestruct(msg.sender);
+    //     return true;
+    // }
+
+    // function financeContract() 
+    //     public
+    //     payable
+    //     hasMoney
+    //     returns (bool success)
+    // {
+    //     if (msg.sender == alice) {
+    //         var party2part = msg.value / 2;
+    //         var party1part = msg.value - party2part;
+
+    //         party2.transfer(party2part);
+    //         party1.transfer(party1part);
+            
+    //         LogAliceSend(msg.value, party2part, party1part);
+    //     } else {
+    //         LogContribution(msg.value, msg.sender);
+    //     }    
+
+    //     return true;
+    // }
+
     // function () 
     //     payable // it should receive ether
     //     public {
         
     //     // split the amount of ether sent here
     //     if (msg.sender == alice) {
-    //         var bobpart = msg.value / 2;
-    //         var carolpart = msg.value - bobpart;
+    //         var party2part = msg.value / 2;
+    //         var party1part = msg.value - party2part;
 
-    //         bob.transfer(bobpart);
-    //         carol.transfer(carolpart);
+    //         party2.transfer(party2part);
+    //         party1.transfer(party1part);
             
-    //         LogAliceSend(msg.value, bobpart, carolpart);
+    //         LogAliceSend(msg.value, party2part, party1part);
     //     } 
     // }
 }

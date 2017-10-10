@@ -1,187 +1,128 @@
 var Splitter = artifacts.require("./Splitter.sol");
 
 contract("Splitter", function(accounts) {
-    var aliceAcc = accounts[0]; var aliceBalance;
-    var bobAcc = accounts[1]; var bobBalance;
-    var carolAcc = accounts[2]; var carolBalance;
-    var owner = accounts[3]; var ownerBalance;
-    var someOtherGuy = accounts[4];
-
-    var contract; var contractBalance;
+    var contract;
+    var owner = accounts[0];
+    var party1 = accounts[1];
+    var party2 = accounts[2];
+    var source = accounts[3];
 
     beforeEach(function() {
-        return Splitter.new(aliceAcc, bobAcc, carolAcc, { from: owner } )
-        .then(function(instance) {
-            contract = instance;
-            return web3.eth.getBalance(aliceAcc)
-        })
-        .then(function(balance){
-            aliceBalance = balance;
-            return web3.eth.getBalance(bobAcc)
-        })
-        .then(function(balance) {
-            bobBalance = balance;
-            return web3.eth.getBalance(carolAcc);
-        })
-        .then(function(balance) {
-            carolBalance = balance;
-            return web3.eth.getBalance(owner);
-        })
-        .then(function(balance) {
-            ownerBalance = balance;
-            return web3.eth.getBalance(contract.address);
-        }).then(function(balance) {
-            contractBalance = balance;
-        });
-    })
-
-    it("should withdraw the needed amount of money", function() {
-        return checkWithdrawal(aliceAcc);
+        // init the contract with new instance each time
+        return Splitter.new({ from: owner } )
+        .then(instance => contract = instance)
     })
 
 
-    it("should add munny from for bob and carol", function() {
-        var contrib = 10;
-        var bobNewBalance;
-        var carolNewBalance;
-        return contract.financeContract({ from: aliceAcc, value: contrib})
-        .then(function(txn){
-            return web3.eth.getBalance(carolAcc);
-        })
-        .then(function(_carolNewBalance){
-            carolNewBalance = _carolNewBalance;
-            return web3.eth.getBalance(bobAcc);
-        })
-        .then(function(_bobNewBalance) {
-            bobNewBalance = _bobNewBalance;
-            assert.strictEqual(carolNewBalance.toString(10), carolBalance.add(contrib / 2).toString(10), "Carol balance raised by the half of alice contribution");
-            assert.strictEqual(bobNewBalance.toString(10), bobBalance.add(contrib / 2).toString(10), "Bob balance raised by the half of alice contribution");
-        })
-    })
+    it("should check that the contribution is at the account balance, if split is not specified", 
+    () => { return checkClearContribution(owner, 239) })
+    it("should check that the contribution is at the account balance, if split is not specified", 
+    () => { return checkClearContribution(party1, 40) })
+    it("should check that the contribution is at the account balance, if split is not specified", 
+    () => { return checkClearContribution(party2, 38) })
+    it("should check that the contribution is at the account balance, if split is not specified", 
+    () => { return checkClearContribution(source, 37) })
 
-    it("should not add munny from for bob and carol", function() {
-        var contrib = 10;
-        var bobNewBalance;
-        var carolNewBalance;
-        return contract.financeContract({ from: owner, value: contrib})
-        .then(function(txn){
-            return web3.eth.getBalance(carolAcc);
-        })
-        .then(function(_carolNewBalance){
-            carolNewBalance = _carolNewBalance;
-            return web3.eth.getBalance(bobAcc);
-        })
-        .then(function(_bobNewBalance) {
-            bobNewBalance = _bobNewBalance;
-            assert.strictEqual(carolNewBalance.toString(10), carolBalance.toString(10), "Carol balance stayed the same");
-            assert.strictEqual(bobNewBalance.toString(10), bobBalance.toString(10), "Bob balance stayed the same");
-        })
-    })
+    it("should check that the contribution is splitted, if split was specified", 
+    () => { return checkSplitContribution(source, party1, party2, 239) })
+    it("should check that the contribution is splitted, if split was specified", 
+    () => { return checkSplitContribution(source, party1, party2, 240) })
 
-    it("contract balance should increase by anyone except alice", function(){
-        var contrib1 = 10;
-        var contrib2 = 20;
-        var contrib3 = 30;
-        var aliceContrib = 239;
+    it("should fail, if zero ether is contribuited", 
+    () => { return contract.contribute({from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
 
-        return contract.financeContract({ from: owner, value: contrib1})
-        .then(function(txn){
-            return contract.financeContract({ from: carolAcc, value: contrib2})
-        })
-        .then(function(txn){
-            return contract.financeContract({ from: bobAcc, value: contrib3})
-        })
-        .then(function(txn){
-            return contract.financeContract({ from: aliceAcc, value: aliceContrib})
-        })
-        .then(function(txn){
-            return web3.eth.getBalance(contract.address);
-        })
-        .then(function(_contractNewBalance) {
-            assert.strictEqual(_contractNewBalance.toString(10), (contrib1 + contrib2 + contrib3).toString(10), "Contract balance raised");
-        })
-    })
+    it("should fail, if set own address as recipient", 
+    () => { return contract.setRecipients(source, party2, {from: source}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+    it("should fail, if set own address as recipient", 
+    () => { return contract.setRecipients(party1, source, {from: source}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+    it("should fail, if set own address as recipient", 
+    () => { return contract.setRecipients(party1, party2, {from: source}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+
+    it("should fail, if withdraw from empty account", 
+    () => { return checkWithdrawFailAccount(source) })
+
+    it ("should check, that the account balance is changed ok after withdrawal",
+    () => { return getContributionAccountData(source, null, null, 4000000000000).then(data => checkWithdrawalAccount(source)) })
 
 
-    function makeSomeContribsAndReturnContractBalance() {
-        var contrib1 = 10;
-        var contrib2 = 20;
-        var contrib3 = 30;
-        var aliceContrib = 239;
+    // contributes the value to the account, and than checks the balance of it
+    function getContributionAccountData(acc, party1, party2, value) {
+        var dataObj = new Object();
+        dataObj.contribution = value;
 
-        return contract.financeContract({ from: owner, value: contrib1})
-        .then(function(txn){
-            return contract.financeContract({ from: carolAcc, value: contrib2})
-        })
-        .then(function(txn){
-            return contract.financeContract({ from: bobAcc, value: contrib3})
-        })
-        .then(function(txn){
-            return contract.financeContract({ from: aliceAcc, value: aliceContrib})
-        })
-        .then(function(txn){
-            return web3.eth.getBalance(contract.address);
-        })
+        return contract.isSplitterSet(acc)
+        .then(split => { dataObj.split = split; return contract.getBalance(acc, {from: acc})})
+        .then(before => { dataObj.before = before; return contract.getBalance(party1, {from: acc})})
+        .then(beforeParty1 => { dataObj.beforeParty1 = beforeParty1; return contract.getBalance(party2, {from: acc})})
+        .then(beforeParty2 => { dataObj.beforeParty2 = beforeParty2; return contract.contribute({from: acc, value: value})})
+        .then(txn => { return contract.getBalance(acc, {from: acc})})
+        .then(after => { dataObj.after = after; return contract.getBalance(party1, {from: acc})})
+        .then(afterParty1 => { dataObj.afterParty1 = afterParty1; return contract.getBalance(party2, {from: acc})})
+        .then(afterParty2 => { dataObj.afterParty2 = afterParty2; return dataObj })
     }
 
-    function killByAcc(contribFunc, killerAcc, canKill) {
-        return contribFunc()
-        .then(function(txn) {
-            return contract.killContract({ from: killerAcc });
-        })
-        .then(function(txn){
-            assert.strictEqual(canKill, true, "Other guy cannot kill the contract")
-        })
-        .catch(function(e) {
-            assert.strictEqual(!canKill, true, "Other guy was not able to kill the contract")
-        })
+    function clearSplit(acc) {
+        return contract.clearRecipients({from: acc});
     }
 
-    it("should fail, if some other guy kills the contract", function() {
-        return killByAcc(makeSomeContribsAndReturnContractBalance, someOtherGuy, false);
-    })
-    it("should succeed, if our guy kills the contract", function() {
-        return killByAcc(makeSomeContribsAndReturnContractBalance, aliceAcc, true);
-    })
-    it("should succeed, if our guy kills the contract", function() {
-        return killByAcc(makeSomeContribsAndReturnContractBalance, carolAcc, true);
-    })
-    it("should succeed, if our guy kills the contract", function() {
-        return killByAcc(makeSomeContribsAndReturnContractBalance, bobAcc, true);
-    })
-
-    function checkWithdrawal(acc) {
-        var accBal;
-        var contractBal;
-        var etherSpent; 
-        var gasP = 50000;
-
-        return makeSomeContribsAndReturnContractBalance()
-        .then(function(txn) {
-            return web3.eth.getBalance(acc)
-        })
-        .then(function(_accBalance) {
-            accBal = _accBalance;
-            console.log("Munny on acc", accBal.toString(10))
-            return web3.eth.getBalance(contract.address); 
-        })
-        .then(function(_contractBalance) {
-            contractBal = _contractBalance;
-            console.log("Munny on contract", contractBal.toString(10))
-            return contract.killContract({ from: acc, gasP: 50000 });
-        })
-        .then(function(txn) {
-            etherSpent = gasP * txn.receipt.gasUsed;
-            console.log("Munny spent", etherSpent.toString(10))
-            
-            return web3.eth.getBalance(acc)
-        })
-        .then(function(accNewBalance) {
-            console.log("Munny on acc after", accNewBalance.toString(10))
-            var expected = accBal.add(contractBal).sub(etherSpent);
-            console.log("Munny expected", expected.toString(10));
-            
-            assert.strictEqual(expected.toString(10), accNewBalance.toString(10), "The withdrawn munny was corrupted")
-        })
+    function setSplit(acc, party1, party2) {
+        return contract.setRecipients(party1, party2, {from: acc});
     }
+
+    function checkAccountBalance(data) {
+        if (data.split) { 
+            var contrib1 = Math.floor(data.contribution / 2);
+            var contrib2 = data.contribution - contrib1;
+            assert.strictEqual(data.before.toString(10), data.after.toString(10), "Account changed after split"); 
+            assert.strictEqual(data.beforeParty1.add(contrib1).toString(10), data.afterParty1.toString(10), "Split account changed by half"); 
+            assert.strictEqual(data.beforeParty2.add(contrib2).toString(10), data.afterParty2.toString(10), "Split account stayed the same"); 
+        } else { 
+            assert.strictEqual(data.before.add(data.contribution).toString(10), data.after.toString(10), "Account increased without split");
+            assert.strictEqual(data.beforeParty1.toString(10), data.afterParty1.toString(10), "Split account stayed the same"); 
+            assert.strictEqual(data.beforeParty2.toString(10), data.afterParty2.toString(10), "Split account stayed the same"); 
+        }
+    }
+    
+    function checkClearContribution(acc, value) {
+        return clearSplit(acc)
+        .then(tx => getContributionAccountData(acc, null, null, value))
+        .then(data => checkAccountBalance(data))
+    }
+
+    function checkSplitContribution(acc, party1, party2, value) {
+        return setSplit(acc, party1, party2)
+        .then(tx => getContributionAccountData(acc, party1, party2, value))
+        .then(data => checkAccountBalance(data))
+    }
+
+    function checkWithdrawFailAccount(acc) {
+        return contract.withdrawRefund({from :acc})
+        .then(tx => assert.strictEqual(true, false, "It should fail")).catch(e => {})
+    }
+
+    function getWithdrawalData(acc) {
+        var data = new Object();
+
+        return contract.getBalance(acc, {from: acc})
+        .then(before => { data.before = before; return web3.eth.getBalance(contract.address)})
+        .then(contractBefore => { data.contractBefore = contractBefore; return web3.eth.getBalance(acc)})
+        .then(accBefore => { data.accBefore = accBefore; return contract.withdrawRefund({from: acc});})
+        .then(txn => { data.price = web3.eth.gasPrice.times(txn.receipt.gasUsed); return contract.getBalance(acc, {from: acc})})
+        .then(after => { data.after = after; return web3.eth.getBalance(contract.address)} )
+        .then(contractAfter => { data.contractAfter = contractAfter; return web3.eth.getBalance(acc); })
+        .then(accAfter => { data.accAfter = accAfter; return data;})
+    }
+
+    function checkWithdrawalBalance(data) {
+        assert.strictEqual(data.before.minus(data.after).toString(10), data.contractBefore.minus(data.contractAfter).toString(10), 
+            "The amount of changed account data equals to the withdrawn data");
+        // assert.strictEqual(data.accAfter.minus(data.accBefore).plus(data.price).toString(10), data.contractBefore.minus(data.contractAfter).toString(10), 
+        //     "The amount of changed account data equals to the withdrawn data")
+    }
+
+    function checkWithdrawalAccount(acc) {
+        return getWithdrawalData(acc)
+        .then(data => checkWithdrawalBalance(data))
+    }
+
 })
