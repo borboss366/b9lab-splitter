@@ -95,7 +95,7 @@ contract Splitter {
 
     function withdrawRefund() external {
         uint refund = splitters[msg.sender].balance;
-        if (refund == 0) revert(); // nothing to send
+        require(refund > 0);
         splitters[msg.sender].balance = 0;
         msg.sender.transfer(refund);
         LogWithdrawn(refund, msg.sender);
