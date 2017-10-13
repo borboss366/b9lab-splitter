@@ -15,16 +15,8 @@ contract Splitter {
     address public owner;
 
     // the splitters, who decided to participate in splitting
-    mapping (address => SplitterUsers) splitters;
-
-    /*
-    The structure to set up splits for the splitters
-    */
-    struct SplitterUsers {
-        address party1;
-        address party2;
-        uint balance;
-    }
+    // mapping (address => SplitterUsers) splitters;
+    mapping (address => uint) balances;
 
     event LogSplitted(uint amount, address splitter, address party1, address party2);
     event LogWithdrawn(uint amount, address beneficiary);
@@ -34,58 +26,32 @@ contract Splitter {
         owner = msg.sender;
     }
 
-    function setRecipients(address party1, address party2) 
-        public {
-        splitters[msg.sender].party1 = party1;
-        splitters[msg.sender].party2 = party2;
-    }
-
-    function clearRecipients()
-        public {
-        setRecipients(msg.sender, msg.sender);
-    }
-
     function getBalance(address account) 
         public 
         constant
         returns (uint) {
-        return splitters[account].balance;
+        return balances[account];
     }
 
-    function getParty1(address account)
-        public
-        constant
-        returns (address) {
-        return splitters[account].party1;
-    }
-
-    function getParty2(address account)
-        public
-        constant
-        returns (address) {
-        return splitters[account].party2;
-    }
-
-    function incBalance(address recp, uint amount) 
-        private {
-        splitters[recp].balance += amount;
-    }
-
-    function contribute()
+    function contributeLocal() 
         payable
         hasMoney
         public {
+        contribute(msg.sender, msg.sender);
+    }
 
-        // check that the addresses are not null, if they are null, than set them to the msg.sender value
-        if (splitters[msg.sender].party1 == address(0x0)) { splitters[msg.sender].party1 = msg.sender; }
-        if (splitters[msg.sender].party2 == address(0x0)) { splitters[msg.sender].party2 = msg.sender; }
+    function contribute(address party1, address party2)
+        payable
+        hasMoney
+        public {
+        require(party1 != address(0x0));
+        require(party2 != address(0x0));
 
         // safe distribution in two parts
         uint party1part = msg.value / 2;
-        uint party2part = msg.value - party1part;
-        incBalance(splitters[msg.sender].party1, party1part);
-        incBalance(splitters[msg.sender].party2, party2part);
-        LogSplitted(msg.value, msg.sender, splitters[msg.sender].party1, splitters[msg.sender].party2);
+        balances[party1] += party1part;
+        balances[party2] += msg.value - party1part;
+        LogSplitted(msg.value, msg.sender, party1, party2);
     }
 
     modifier hasMoney() {
@@ -94,9 +60,9 @@ contract Splitter {
     }
 
     function withdrawRefund() external {
-        uint refund = splitters[msg.sender].balance;
+        uint refund = balances[msg.sender];
         require(refund > 0);
-        splitters[msg.sender].balance = 0;
+        balances[msg.sender] = 0;
         msg.sender.transfer(refund);
         LogWithdrawn(refund, msg.sender);
     }

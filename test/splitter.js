@@ -23,15 +23,6 @@ contract("Splitter", function(accounts) {
     it("should check that the contribution is at the account balance, if split is not specified", 
     () => { return checkClearContribution(source, 37) })
 
-    it("should check that the contribution is at the account balance, if split is not specified", 
-    () => { return checkClearContributionSet(owner, 239) })
-    it("should check that the contribution is at the account balance, if split is not specified", 
-    () => { return checkClearContributionSet(party1, 40) })
-    it("should check that the contribution is at the account balance, if split is not specified", 
-    () => { return checkClearContributionSet(party2, 38) })
-    it("should check that the contribution is at the account balance, if split is not specified", 
-    () => { return checkClearContributionSet(source, 37) })
-
 
     it("should check that the contribution is splitted, if split was specified", 
     () => { return checkContribution(source, party1, party2, 239) })
@@ -49,7 +40,15 @@ contract("Splitter", function(accounts) {
     () => { return checkContribution(source, party1, source, 240) })
 
     it("should fail, if zero ether is contribuited", 
-    () => { return contract.contribute({from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+    () => { return contract.contributeLocal({from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+
+    it("should fail, if one of the parties address is not specified", 
+    () => { return contract.contribute("0x0", "0x0", {from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+    it("should fail, if one of the parties address is not specified", 
+    () => { return contract.contribute(party1, "0x0", {from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+    it("should fail, if one of the parties address is not specified", 
+    () => { return contract.contribute("0x0", party2, {from: source, value: 0}).then(txn => assert.strictEqual(true, false, "It should fail")).catch(e => {}) })
+
 
     it("should fail, if withdraw from empty account", 
     () => { return checkWithdrawFailAccount(source) })
@@ -67,31 +66,15 @@ contract("Splitter", function(accounts) {
     () => { return getContributionAccountData(source, party1, party2, 4000000000000)
         .then(data => { return getContributionAccountData(source, party1, source, 1)})
         .then(data => checkWithdrawalAccount(source)) })
-        
-    it ("should check that the parties, that are set are set correctly",
-    () => { 
-        return getContributionAccountData(source, source, source, 4000000000000)
-        .then(data => { return contract.setRecipients(party1, party2, {from: source})})
-        .then(txn => { return contract.getParty1(source, {from: source})})
-        .then(p1 => { assert.strictEqual(party1, p1, "Party1 should be set correctly"); return contract.getParty2(source, {from: source}) })
-        .then(p2 => { assert.strictEqual(party2, p2, "Party2 should be set correctly") } )
-    })
-    
+
 
     function checkClearContribution(acc, value) {
         return getContributionAccountData(acc, acc, acc, value)
         .then(data => checkAccountBalance(data))
     }
 
-    function checkClearContributionSet(acc, value) {
-        return setSplit(acc, acc, acc)
-        .then(tx => getContributionAccountData(acc, acc, acc, value))
-        .then(data => checkAccountBalance(data))
-    }
-    
     function checkContribution(acc, party1, party2, value) {
-        return setSplit(acc, party1, party2)
-        .then(tx => getContributionAccountData(acc, party1, party2, value))
+        return getContributionAccountData(acc, party1, party2, value)
         .then(data => checkAccountBalance(data))
     }
 
@@ -134,19 +117,16 @@ contract("Splitter", function(accounts) {
         return contract.getBalance(acc, {from: acc})
         .then(before => { dataObj.before = before; return contract.getBalance(party1, {from: acc})})
         .then(beforeParty1 => { dataObj.beforeParty1 = beforeParty1; return contract.getBalance(party2, {from: acc})})
-        .then(beforeParty2 => { dataObj.beforeParty2 = beforeParty2; return contract.contribute({from: acc, value: value})})
+        .then(beforeParty2 => { dataObj.beforeParty2 = beforeParty2; 
+            if (party1 != acc || party2 != acc) { // at least one is not
+                return contract.contribute(party1, party2, {from: acc, value: value})
+            } else {
+                return contract.contributeLocal({from: acc, value: value})
+            }})
         .then(txn => { return contract.getBalance(acc, {from: acc})})
         .then(after => { dataObj.after = after; return contract.getBalance(party1, {from: acc})})
         .then(afterParty1 => { dataObj.afterParty1 = afterParty1; return contract.getBalance(party2, {from: acc})})
         .then(afterParty2 => { dataObj.afterParty2 = afterParty2; return dataObj })
-    }
-
-    function clearSplit(acc) {
-        return contract.clearRecipients({from: acc});
-    }
-
-    function setSplit(acc, party1, party2) {
-        return contract.setRecipients(party1, party2, {from: acc});
     }
 
     function checkWithdrawFailAccount(acc) {
@@ -165,7 +145,7 @@ contract("Splitter", function(accounts) {
 
         return contract.getBalance(acc)
         .then(contractBalance => {data.contractBalance = contractBalance; return getBalance(source)})
-        .then(balance => { data.before = balance; return contract.contribute({from: source, value: 1000 * 1000 * 1000})})
+        .then(balance => { data.before = balance; return contract.contributeLocal({from: source, value: 1000 * 1000 * 1000})})
         .then(txn => { gasContribute = txn.receipt.gasUsed; return web3.eth.getTransaction(txn.tx)})
         .then(tx => { priceContribute = tx.gasPrice; return contract.withdrawRefund({from: source})})
         .then(txn => { gasWithdrawn = txn.receipt.gasUsed; return web3.eth.getTransaction(txn.tx) })
@@ -178,7 +158,8 @@ contract("Splitter", function(accounts) {
     }
 
     function checkWithdrawalBalance(data) {
-        assert.strictEqual(data.before.plus(data.contractBalance).toString(10), data.after.plus(data.costContribute).plus(data.costWithdraw).toString(10), "balance of the account should remain the same")
+        assert.strictEqual(data.before.plus(data.contractBalance).toString(10), data.after.plus(data.costContribute).plus(data.costWithdraw).toString(10), 
+        "balance of the account should remain the same")
     }
 
     function checkWithdrawalAccount(acc) {
